@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIndicator, Alert } from "react-native"
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIndicator, Alert,Linking } from "react-native"
 import { type RouteProp, useNavigation, useRoute } from "@react-navigation/native"
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack"
 import { Ionicons } from "@expo/vector-icons"
@@ -106,6 +106,32 @@ function getFullImageUrl(imageUrl) {
     ])
   }
 
+  const handleWatchVideo = async () => {
+    if (!recipe?.videoUrl) return
+
+    try {
+      // Перевіряємо, чи URL валідний
+      const isValidUrl = recipe.videoUrl.startsWith("http://") || recipe.videoUrl.startsWith("https://")
+
+      if (!isValidUrl) {
+        showToast("Невалідне посилання на відео", "error")
+        return
+      }
+
+      // Перевіряємо, чи може пристрій відкрити це посилання
+      const canOpen = await Linking.canOpenURL(recipe.videoUrl)
+
+      if (canOpen) {
+        await Linking.openURL(recipe.videoUrl)
+      } else {
+        showToast("Не вдалося відкрити відео", "error")
+      }
+    } catch (error) {
+      console.error("Error opening video URL:", error)
+      showToast("Помилка при відкритті відео", "error")
+    }
+  }
+
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -198,7 +224,7 @@ function getFullImageUrl(imageUrl) {
       {recipe.videoUrl && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Video</Text>
-          <TouchableOpacity style={styles.videoLink}>
+          <TouchableOpacity style={styles.videoLink} onPress={handleWatchVideo}>
             <Ionicons name="videocam-outline" size={20} color="#FF6B6B" />
             <Text style={styles.videoLinkText}>Watch Video</Text>
           </TouchableOpacity>

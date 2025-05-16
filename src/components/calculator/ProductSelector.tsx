@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState } from "react"
-import { View, Text, StyleSheet, TouchableOpacity, Modal, FlatList } from "react-native"
+import { View, Text, StyleSheet, TouchableOpacity, Modal, FlatList, TextInput } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import type { ProductDto } from "../../types/product"
 import Input from "../common/Input"
@@ -25,6 +25,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
   onRemove,
 }) => {
   const [modalVisible, setModalVisible] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
   const selectedProduct = products.find((p) => p.id === selectedProductId)
 
   const handleAmountChange = (text: string) => {
@@ -32,10 +33,15 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
     onAmountChange(newAmount)
   }
 
+  const filteredProducts =
+    searchQuery.trim() === ""
+      ? products
+      : products.filter((product) => product.name.toLowerCase().includes(searchQuery.toLowerCase()))
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.productName}>{selectedProduct ? selectedProduct.name : "Select product"}</Text>
+        <Text style={styles.productName}>{selectedProduct ? selectedProduct.name : "Виберіть продукт"}</Text>
         <TouchableOpacity onPress={onRemove} style={styles.removeButton}>
           <Ionicons name="trash-outline" size={18} color="#FF6B6B" />
         </TouchableOpacity>
@@ -44,13 +50,13 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
       <View style={styles.content}>
         <TouchableOpacity style={styles.productSelector} onPress={() => setModalVisible(true)}>
           <Ionicons name="nutrition-outline" size={20} color="#666" />
-          <Text style={styles.selectorText}>{selectedProduct ? selectedProduct.name : "Select product"}</Text>
+          <Text style={styles.selectorText}>{selectedProduct ? selectedProduct.name : "Виберіть продукт"}</Text>
           <Ionicons name="chevron-down" size={20} color="#666" />
         </TouchableOpacity>
 
         <View style={styles.amountContainer}>
           <Input
-            label="Amount (g)"
+            label="Кількість (г)"
             value={amount.toString()}
             onChangeText={handleAmountChange}
             keyboardType="numeric"
@@ -61,7 +67,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
 
       {selectedProduct && (
         <View style={styles.nutritionInfo}>
-          <Text style={styles.nutritionText}>{Math.round((selectedProduct.caloriesPer100g * amount) / 100)} kcal</Text>
+          <Text style={styles.nutritionText}>{Math.round((selectedProduct.caloriesPer100g * amount) / 100)} ккал</Text>
         </View>
       )}
 
@@ -74,14 +80,30 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Product</Text>
+              <Text style={styles.modalTitle}>Виберіть продукт</Text>
               <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeButton}>
                 <Ionicons name="close" size={24} color="#333" />
               </TouchableOpacity>
             </View>
 
+            <View style={styles.searchContainer}>
+              <Ionicons name="search" size={20} color="#999" />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Пошук продуктів..."
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoCapitalize="none"
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery("")}>
+                  <Ionicons name="close-circle" size={20} color="#999" />
+                </TouchableOpacity>
+              )}
+            </View>
+
             <FlatList
-              data={products}
+              data={filteredProducts}
               keyExtractor={(item) => item.id.toString()}
               renderItem={({ item }) => (
                 <TouchableOpacity
@@ -95,9 +117,14 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
                     <Text style={styles.productItemName}>{item.name}</Text>
                     <Text style={styles.productItemCategory}>{item.categoryName}</Text>
                   </View>
-                  <Text style={styles.productItemCalories}>{Math.round(item.caloriesPer100g)} kcal/100g</Text>
+                  <Text style={styles.productItemCalories}>{Math.round(item.caloriesPer100g)} ккал/100г</Text>
                 </TouchableOpacity>
               )}
+              ListEmptyComponent={
+                <View style={styles.emptyList}>
+                  <Text style={styles.emptyListText}>Продуктів не знайдено</Text>
+                </View>
+              }
             />
           </View>
         </View>
@@ -128,11 +155,9 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   content: {
-    flexDirection: "row",
-    alignItems: "flex-end",
+    flexDirection: "column",
   },
   productSelector: {
-    flex: 2,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#fff",
@@ -140,7 +165,7 @@ const styles = StyleSheet.create({
     borderColor: "#ddd",
     borderRadius: 8,
     padding: 12,
-    marginRight: 8,
+    marginBottom: 12,
   },
   selectorText: {
     flex: 1,
@@ -149,7 +174,7 @@ const styles = StyleSheet.create({
     color: "#333",
   },
   amountContainer: {
-    flex: 1,
+    width: "100%",
   },
   amountInput: {
     marginBottom: 0,
@@ -190,6 +215,22 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: 4,
   },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f0f0f0",
+    margin: 16,
+    marginTop: 0,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 16,
+    color: "#333",
+  },
   productItem: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -215,6 +256,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#FF6B6B",
     fontWeight: "500",
+  },
+  emptyList: {
+    padding: 20,
+    alignItems: "center",
+  },
+  emptyListText: {
+    fontSize: 16,
+    color: "#666",
+    fontStyle: "italic",
   },
 })
 

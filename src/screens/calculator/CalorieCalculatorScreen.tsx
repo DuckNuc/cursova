@@ -173,10 +173,10 @@ const CalorieCalculatorScreen = () => {
   )
 
   return (
-    <ScrollView style={styles.container}>
+    <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Calorie Calculator</Text>
-        <Text style={styles.subtitle}>Calculate nutrition information</Text>
+        
       </View>
 
       <View style={styles.tabContainer}>
@@ -194,7 +194,7 @@ const CalorieCalculatorScreen = () => {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.content}>
+      <ScrollView style={styles.content}>
         {isLoading ? (
           <ActivityIndicator size="large" color="#FF6B6B" />
         ) : activeTab === "products" ? (
@@ -202,20 +202,20 @@ const CalorieCalculatorScreen = () => {
         ) : (
           renderManualTab()
         )}
-      </View>
 
-      {nutritionResult && (
-        <View style={styles.resultContainer}>
-          <Text style={styles.resultTitle}>Nutrition Result</Text>
-          <NutritionInfo
-            calories={nutritionResult.totalCalories}
-            proteins={nutritionResult.totalProteins}
-            fats={nutritionResult.totalFats}
-            carbs={nutritionResult.totalCarbs}
-          />
-        </View>
-      )}
-    </ScrollView>
+        {nutritionResult && (
+          <View style={styles.resultContainer}>
+            <Text style={styles.resultTitle}>Nutrition Result</Text>
+            <NutritionInfo
+              calories={nutritionResult.totalCalories}
+              proteins={nutritionResult.totalProteins}
+              fats={nutritionResult.totalFats}
+              carbs={nutritionResult.totalCarbs}
+            />
+          </View>
+        )}
+      </ScrollView>
+    </View>
   )
 }
 
@@ -225,11 +225,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   header: {
-    padding: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
     backgroundColor: "#FF6B6B",
   },
   title: {
-    fontSize: 24,
+    marginTop: 25,
+    fontSize: 20,
     fontWeight: "bold",
     color: "#fff",
   },
@@ -261,6 +263,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   content: {
+    flex: 1,
     padding: 16,
   },
   productsHeader: {
