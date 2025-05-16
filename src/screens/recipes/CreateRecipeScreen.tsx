@@ -74,6 +74,33 @@ const CreateRecipeScreen = () => {
     }
   }
 
+  const CLOUD_NAME = "dxhj6beyi";
+const UPLOAD_PRESET = "recipe_app";
+
+const uploadToCloudinary = async (localUri) => {
+  const fileName = localUri.split('/').pop();
+  const mimeType = mime.getType(localUri) || "image/jpeg";
+
+  const formData = new FormData();
+  formData.append("file", {
+  uri: localUri,
+  type: mimeType,
+  name: fileName,
+} as any); // <- додай 'as any'
+
+  formData.append("upload_preset", UPLOAD_PRESET);
+
+  const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) throw new Error("Upload failed");
+
+  const data = await response.json();
+  return data.secure_url; // Cloudinary URL
+};
+
   const handleSelectImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync()
     if (!permissionResult.granted) {
@@ -95,31 +122,7 @@ const CreateRecipeScreen = () => {
     }
   }
 
-  const uploadImage = async (recipeId: number) => {
-    if (!selectedImage) return null
 
-    const token = await AsyncStorage.getItem("@RecipeApp:token")
-    const localUri = selectedImage.uri
-    const fileName = selectedImage.fileName || localUri.split("/").pop()
-    const mimeType = mime.getType(localUri)
-
-    const formData = new FormData()
-    formData.append("photo", {
-      uri: localUri,
-      type: mimeType,
-      name: fileName,
-    } as any)
-
-    const response = await api.post(`/api/Recipes/${recipeId}/upload-image`, formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-        Authorization: `Bearer ${token}`,
-      },
-    })
-
-    const imageUrl = response.data.imageUrl
-    return imageUrl.startsWith("http") ? imageUrl : `https://bdf5-5-248-21-166.ngrok-free.app${imageUrl}`
-  }
 
    const handleUpdateIngredient = (index: number, ingredient: RecipeProductCreateDto) => {
     const updatedIngredients = [...ingredients]
@@ -134,57 +137,49 @@ const CreateRecipeScreen = () => {
   }
 
   const handleSubmit = async () => {
-    if (!title || !categoryId || ingredients.length === 0) {
-      showToast("Заповніть усі обов'язкові поля", "error")
-      return
-    }
-
-    setIsLoading(true)
-    try {
-      const token = await AsyncStorage.getItem("@RecipeApp:token")
-      if (!token) {
-        showToast("Користувач не авторизований", "error")
-        setIsLoading(false)
-        return
-      }
-
-      const recipeData = {
-        title,
-        description,
-        imageUrl: "",
-        videoUrl,
-        categoryId,
-        ingredients,
-      }
-
-      const createdResponse = await api.post("/api/Recipes", recipeData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      const recipeId = createdResponse.data.id
-
-      if (selectedImage) {
-        const uploadedImageUrl = await uploadImage(recipeId)
-        await api.put(`/api/Recipes/${recipeId}`, {
-          ...recipeData,
-          imageUrl: uploadedImageUrl,
-        }, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
-      }
-
-      showToast("Рецепт успішно створено", "success")
-      navigation.goBack()
-    } catch {
-      showToast("Помилка при створенні рецепта", "error")
-    } finally {
-      setIsLoading(false)
-    }
+  if (!title || !categoryId || ingredients.length === 0) {
+    showToast("Заповніть усі обов'язкові поля", "error");
+    return;
   }
+
+  setIsLoading(true);
+  try {
+    const token = await AsyncStorage.getItem("@RecipeApp:token");
+    if (!token) {
+      showToast("Користувач не авторизований", "error");
+      setIsLoading(false);
+      return;
+    }
+
+    let uploadedImageUrl = "";
+    if (selectedImage) {
+      // Заливаємо фото у Cloudinary
+      uploadedImageUrl = await uploadToCloudinary(selectedImage.uri);
+    }
+
+    const recipeData = {
+      title,
+      description,
+      imageUrl: uploadedImageUrl, // ось тут одразу Cloudinary URL
+      videoUrl,
+      categoryId,
+      ingredients,
+    };
+
+    await api.post("/api/Recipes", recipeData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    showToast("Рецепт успішно створено", "success");
+    navigation.goBack();
+  } catch {
+    showToast("Помилка при створенні рецепта", "error");
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>

@@ -47,11 +47,37 @@ const EditRecipeScreen = () => {
   const [categoryId, setCategoryId] = useState<number | null>(null)
   const [ingredients, setIngredients] = useState<RecipeProductCreateDto[]>([])
   const [selectedImage, setSelectedImage] = useState<any>(null)
-
   const [categories, setCategories] = useState<CategoryDto[]>([])
   const [products, setProducts] = useState<ProductDto[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+
+
+  const CLOUD_NAME = "dxhj6beyi";
+const UPLOAD_PRESET = "recipe_app";
+
+const uploadToCloudinary = async (localUri) => {
+  const fileName = localUri.split('/').pop();
+  const mimeType = mime.getType(localUri) || "image/jpeg";
+  const formData = new FormData();
+  formData.append("file", {
+    uri: localUri,
+    type: mimeType,
+    name: fileName,
+  } as any);
+  formData.append("upload_preset", UPLOAD_PRESET);
+
+  const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) throw new Error("Upload failed");
+
+  const data = await response.json();
+  return data.secure_url;
+};
+
 
   useEffect(() => {
     Promise.all([fetchRecipe(), fetchCategories(), fetchProducts()])
@@ -152,31 +178,7 @@ const EditRecipeScreen = () => {
 }
 
 
-  const uploadImage = async () => {
-  if (!selectedImage) return null
-
-  const token = await AsyncStorage.getItem("@RecipeApp:token")
-  const localUri = selectedImage.uri
-  const fileName = selectedImage.fileName || localUri.split("/").pop()
-  const mimeType = mime.getType(localUri)
-
-  const formData = new FormData()
-  formData.append("photo", {
-    uri: localUri,
-    type: mimeType,
-    name: fileName,
-  } as any)
-
-  const response = await api.post(`/api/Recipes/${recipeId}/upload-image`, formData, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-      Authorization: `Bearer ${token}`,
-    },
-  })
-
-  const imageUrl = response.data.imageUrl
-  return imageUrl.startsWith("http") ? imageUrl : `https://твій.ngrok.io${imageUrl}`
-}
+  
 
 
   const handleSubmit = async () => {
@@ -198,10 +200,13 @@ const EditRecipeScreen = () => {
     setIsSaving(true)
     try {
       // Upload image if selected
-      let finalImageUrl = imageUrl
-      if (selectedImage) {
-        finalImageUrl = (await uploadImage()) || ""
-      }
+    let finalImageUrl = imageUrl
+if (selectedImage && selectedImage.uri && !selectedImage.uri.startsWith("http")) {
+  // якщо юзер вибрав нове фото — вантаж у Cloudinary
+  finalImageUrl = await uploadToCloudinary(selectedImage.uri)
+}
+
+
 
       const recipeData = {
         title,

@@ -26,6 +26,17 @@ const RecipeDetailScreen = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
 
+
+  const API_URL = "https://moth-bright-frankly.ngrok-free.app";
+
+function getFullImageUrl(imageUrl) {
+  if (!imageUrl) return null;
+  return imageUrl.startsWith("https")
+    ? imageUrl
+    : `${API_URL}${imageUrl}`;
+}
+
+
   const fetchRecipe = async () => {
     setIsLoading(true)
     try {
@@ -111,12 +122,14 @@ const RecipeDetailScreen = () => {
     )
   }
 
-  const isOwner = user?.id === recipe.userId
+  const isOwner = user?.id === recipe.userId;
+  const isAdmin = user?.role === "Admin";
+
 
   return (
     <ScrollView style={styles.container}>
       {recipe.imageUrl ? (
-        <Image source={{ uri: recipe.imageUrl }} style={styles.image} />
+        <Image source={{ uri: getFullImageUrl(recipe.imageUrl) }} style={styles.image} />
       ) : (
         <View style={styles.placeholderImage}>
           <Ionicons name="restaurant-outline" size={60} color="#ccc" />
@@ -145,7 +158,7 @@ const RecipeDetailScreen = () => {
           </TouchableOpacity>
         )}
 
-        {isOwner && (
+        {(isOwner || isAdmin) && (
           <>
             <TouchableOpacity style={styles.actionButton} onPress={handleEditRecipe}>
               <Ionicons name="create-outline" size={20} color="#FF6B6B" />
