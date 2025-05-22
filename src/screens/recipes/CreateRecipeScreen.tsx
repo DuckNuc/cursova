@@ -10,7 +10,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
-  PermissionsAndroid,
 } from "react-native"
 import { useNavigation } from "@react-navigation/native"
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack"
@@ -44,6 +43,8 @@ const CreateRecipeScreen = () => {
   const [products, setProducts] = useState<ProductDto[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [selectedImage, setSelectedImage] = useState<any>(null)
+  const [cookingTime, setCookingTime] = useState("30") // Час приготування в хвилинах
+  const [servings, setServings] = useState("2") // Кількість порцій
 
   useEffect(() => {
     fetchCategories()
@@ -74,32 +75,32 @@ const CreateRecipeScreen = () => {
     }
   }
 
-  const CLOUD_NAME = "dxhj6beyi";
-const UPLOAD_PRESET = "recipe_app";
+  const CLOUD_NAME = "dxhj6beyi"
+  const UPLOAD_PRESET = "recipe_app"
 
-const uploadToCloudinary = async (localUri) => {
-  const fileName = localUri.split('/').pop();
-  const mimeType = mime.getType(localUri) || "image/jpeg";
+  const uploadToCloudinary = async (localUri) => {
+    const fileName = localUri.split("/").pop()
+    const mimeType = mime.getType(localUri) || "image/jpeg"
 
-  const formData = new FormData();
-  formData.append("file", {
-  uri: localUri,
-  type: mimeType,
-  name: fileName,
-} as any); // <- додай 'as any'
+    const formData = new FormData()
+    formData.append("file", {
+      uri: localUri,
+      type: mimeType,
+      name: fileName,
+    } as any) // <- додай 'as any'
 
-  formData.append("upload_preset", UPLOAD_PRESET);
+    formData.append("upload_preset", UPLOAD_PRESET)
 
-  const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
-    method: "POST",
-    body: formData,
-  });
+    const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+      method: "POST",
+      body: formData,
+    })
 
-  if (!response.ok) throw new Error("Upload failed");
+    if (!response.ok) throw new Error("Upload failed")
 
-  const data = await response.json();
-  return data.secure_url; // Cloudinary URL
-};
+    const data = await response.json()
+    return data.secure_url // Cloudinary URL
+  }
 
   const handleSelectImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync()
@@ -122,9 +123,7 @@ const uploadToCloudinary = async (localUri) => {
     }
   }
 
-
-
-   const handleUpdateIngredient = (index: number, ingredient: RecipeProductCreateDto) => {
+  const handleUpdateIngredient = (index: number, ingredient: RecipeProductCreateDto) => {
     const updatedIngredients = [...ingredients]
     updatedIngredients[index] = ingredient
     setIngredients(updatedIngredients)
@@ -137,49 +136,51 @@ const uploadToCloudinary = async (localUri) => {
   }
 
   const handleSubmit = async () => {
-  if (!title || !categoryId || ingredients.length === 0) {
-    showToast("Заповніть усі обов'язкові поля", "error");
-    return;
-  }
-
-  setIsLoading(true);
-  try {
-    const token = await AsyncStorage.getItem("@RecipeApp:token");
-    if (!token) {
-      showToast("Користувач не авторизований", "error");
-      setIsLoading(false);
-      return;
+    if (!title || !categoryId || ingredients.length === 0) {
+      showToast("Заповніть усі обов'язкові поля", "error")
+      return
     }
 
-    let uploadedImageUrl = "";
-    if (selectedImage) {
-      // Заливаємо фото у Cloudinary
-      uploadedImageUrl = await uploadToCloudinary(selectedImage.uri);
+    setIsLoading(true)
+    try {
+      const token = await AsyncStorage.getItem("@RecipeApp:token")
+      if (!token) {
+        showToast("Користувач не авторизований", "error")
+        setIsLoading(false)
+        return
+      }
+
+      let uploadedImageUrl = ""
+      if (selectedImage) {
+        // Заливаємо фото у Cloudinary
+        uploadedImageUrl = await uploadToCloudinary(selectedImage.uri)
+      }
+
+      const recipeData = {
+        title,
+        description,
+        imageUrl: uploadedImageUrl, // ось тут одразу Cloudinary URL
+        videoUrl,
+        categoryId,
+        ingredients,
+        cookingTime: Number.parseInt(cookingTime) || 30,
+        servings: Number.parseInt(servings) || 2,
+      }
+
+      await api.post("/api/Recipes", recipeData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      showToast("Рецепт успішно створено", "success")
+      navigation.goBack()
+    } catch {
+      showToast("Помилка при створенні рецепта", "error")
+    } finally {
+      setIsLoading(false)
     }
-
-    const recipeData = {
-      title,
-      description,
-      imageUrl: uploadedImageUrl, // ось тут одразу Cloudinary URL
-      videoUrl,
-      categoryId,
-      ingredients,
-    };
-
-    await api.post("/api/Recipes", recipeData, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    showToast("Рецепт успішно створено", "success");
-    navigation.goBack();
-  } catch {
-    showToast("Помилка при створенні рецепта", "error");
-  } finally {
-    setIsLoading(false);
   }
-};
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -187,13 +188,36 @@ const uploadToCloudinary = async (localUri) => {
         <View style={styles.formContainer}>
           <Input label="Title" value={title} onChangeText={setTitle} placeholder="Recipe title" required />
 
+          <View style={styles.recipeMetaContainer}>
+            <View style={styles.recipeMetaItem}>
+              <Input
+                label="Cooking Time (min)"
+                value={cookingTime}
+                onChangeText={setCookingTime}
+                placeholder="30"
+                keyboardType="numeric"
+                style={styles.metaInput}
+              />
+            </View>
+            <View style={styles.recipeMetaItem}>
+              <Input
+                label="Servings"
+                value={servings}
+                onChangeText={setServings}
+                placeholder="2"
+                keyboardType="numeric"
+                style={styles.metaInput}
+              />
+            </View>
+          </View>
+
           <Input
             label="Description"
             value={description}
             onChangeText={setDescription}
-            placeholder="Recipe description"
+            placeholder="Recipe description and cooking instructions"
             multiline
-            numberOfLines={4}
+            numberOfLines={6}
           />
 
           <View style={styles.imagePickerContainer}>
@@ -257,6 +281,17 @@ const styles = StyleSheet.create({
   },
   formContainer: {
     padding: 16,
+  },
+  recipeMetaContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  recipeMetaItem: {
+    width: "48%",
+  },
+  metaInput: {
+    marginBottom: 0,
   },
   ingredientsSection: {
     marginBottom: 20,

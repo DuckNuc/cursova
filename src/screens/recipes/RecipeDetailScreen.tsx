@@ -13,18 +13,21 @@ import {
   Modal,
   Dimensions,
   SafeAreaView,
+  TextInput,
 } from "react-native"
 import { type RouteProp, useNavigation, useRoute } from "@react-navigation/native"
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack"
 import { Ionicons } from "@expo/vector-icons"
-import { WebView } from "react-native-webview";
+import { WebView } from "react-native-webview"
 import type { RecipesStackParamList } from "../../navigation/RecipesNavigator"
 import { useAuth } from "../../contexts/AuthContext"
 import { useToast } from "../../contexts/ToastContext"
 import { api } from "../../services/api"
 import type { RecipeDto } from "../../types/recipe"
+import type { ShoppingListCreateDto, ShoppingListItemCreateDto } from "../../types/shoppingList"
 import NutritionInfo from "../../components/recipes/NutritionInfo"
 import IngredientsList from "../../components/recipes/IngredientsList"
+import Button from "../../components/common/Button"
 
 type RecipeDetailScreenRouteProp = RouteProp<RecipesStackParamList, "RecipeDetail">
 type RecipeDetailScreenNavigationProp = NativeStackNavigationProp<RecipesStackParamList, "RecipeDetail">
@@ -40,6 +43,10 @@ const RecipeDetailScreen = () => {
   const [isSaving, setIsSaving] = useState(false)
   const [videoModalVisible, setVideoModalVisible] = useState(false)
   const [videoUrl, setVideoUrl] = useState("")
+  const [shoppingListModalVisible, setShoppingListModalVisible] = useState(false)
+  const [shoppingListName, setShoppingListName] = useState("")
+  const [servingsCount, setServingsCount] = useState("1")
+  const [isAddingToShoppingList, setIsAddingToShoppingList] = useState(false)
 
   const API_URL = "https://moth-bright-frankly.ngrok-free.app"
 
@@ -159,6 +166,45 @@ const RecipeDetailScreen = () => {
     }
   }
 
+  const handleAddToShoppingList = () => {
+    if (!recipe) return
+    setShoppingListName(`Інгредієнти для ${recipe.title}`)
+    setServingsCount("1")
+    setShoppingListModalVisible(true)
+  }
+
+  const createShoppingList = async () => {
+    if (!recipe || !shoppingListName) return
+
+    setIsAddingToShoppingList(true)
+    try {
+      const servingsMultiplier = Number.parseInt(servingsCount) / (recipe.servings || 1)
+
+      const items: ShoppingListItemCreateDto[] = recipe.ingredients.map((ingredient) => ({
+        productId: ingredient.productId,
+        amount: Math.round(ingredient.amountGrams * servingsMultiplier),
+        unit: "г",
+      }))
+
+      const shoppingListData: ShoppingListCreateDto = {
+        name: shoppingListName,
+        items,
+      }
+
+      await api.post("/api/ShoppingLists", shoppingListData)
+      showToast("Список покупок створено успішно", "success")
+      setShoppingListModalVisible(false)
+
+      // Тут можна додати навігацію до списку покупок, якщо потрібно
+      // navigation.navigate("ShoppingLists")
+    } catch (error) {
+      console.error("Error creating shopping list:", error)
+      showToast("Помилка при створенні списку покупок", "error")
+    } finally {
+      setIsAddingToShoppingList(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -201,14 +247,32 @@ const RecipeDetailScreen = () => {
               <Text style={styles.metaText}>{recipe.categoryName}</Text>
             </View>
           </View>
+
+          <View style={styles.recipeMetaContainer}>
+            <View style={styles.recipeMeta}>
+              <Ionicons name="time-outline" size={18} color="#FF6B6B" />
+              <Text style={styles.recipeMetaText}>{recipe.cookingTime || 30} хв</Text>
+            </View>
+            <View style={styles.recipeMeta}>
+              <Ionicons name="people-outline" size={18} color="#FF6B6B" />
+              <Text style={styles.recipeMetaText}>{recipe.servings || 2} порції</Text>
+            </View>
+          </View>
         </View>
 
         <View style={styles.actionsContainer}>
           {user && (
-            <TouchableOpacity style={styles.actionButton} onPress={handleSaveRecipe} disabled={isSaving}>
-              <Ionicons name={recipe.isSaved ? "bookmark" : "bookmark-outline"} size={20} color="#FF6B6B" />
-              <Text style={styles.actionText}>{recipe.isSaved ? "Saved" : "Save"}</Text>
-            </TouchableOpacity>
+            <>
+              <TouchableOpacity style={styles.actionButton} onPress={handleSaveRecipe} disabled={isSaving}>
+                <Ionicons name={recipe.isSaved ? "bookmark" : "bookmark-outline"} size={20} color="#FF6B6B" />
+                <Text style={styles.actionText}>{recipe.isSaved ? "Saved" : "Save"}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.actionButton} onPress={handleAddToShoppingList}>
+                <Ionicons name="cart-outline" size={20} color="#FF6B6B" />
+                <Text style={styles.actionText}>Add to Shopping List</Text>
+              </TouchableOpacity>
+            </>
           )}
 
           {(isOwner || isAdmin) && (
@@ -243,7 +307,7 @@ const RecipeDetailScreen = () => {
 
         {recipe.description && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Description</Text>
+            <Text style={styles.sectionTitle}>Instructions</Text>
             <Text style={styles.description}>{recipe.description}</Text>
           </View>
         )}
@@ -259,6 +323,7 @@ const RecipeDetailScreen = () => {
         )}
       </ScrollView>
 
+      {/* Модальне вікно для відео */}
       <Modal
         visible={videoModalVisible}
         animationType="slide"
@@ -288,6 +353,83 @@ const RecipeDetailScreen = () => {
             )}
           </View>
         </SafeAreaView>
+      </Modal>
+
+      {/* Модальне вікно для створення списку покупок */}
+      <Modal
+        visible={shoppingListModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShoppingListModalVisible(false)}
+      >
+        <View style={styles.shoppingListModalOverlay}>
+          <View style={styles.shoppingListModalContainer}>
+            <View style={styles.shoppingListModalHeader}>
+              <Text style={styles.shoppingListModalTitle}>Add to Shopping List</Text>
+              <TouchableOpacity onPress={() => setShoppingListModalVisible(false)} style={styles.closeButton}>
+                <Ionicons name="close" size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.shoppingListModalContent}>
+              <Text style={styles.shoppingListLabel}>Shopping List Name</Text>
+              <TextInput
+                style={styles.shoppingListInput}
+                value={shoppingListName}
+                onChangeText={setShoppingListName}
+                placeholder="Enter shopping list name"
+              />
+
+              <Text style={styles.shoppingListLabel}>Number of Servings</Text>
+              <View style={styles.servingsContainer}>
+                <TouchableOpacity
+                  style={styles.servingsButton}
+                  onPress={() => {
+                    const current = Number.parseInt(servingsCount)
+                    if (current > 1) setServingsCount((current - 1).toString())
+                  }}
+                >
+                  <Ionicons name="remove" size={20} color="#FF6B6B" />
+                </TouchableOpacity>
+
+                <TextInput
+                  style={styles.servingsInput}
+                  value={servingsCount}
+                  onChangeText={(text) => {
+                    const value = Number.parseInt(text)
+                    if (!isNaN(value) && value > 0) {
+                      setServingsCount(value.toString())
+                    } else if (text === "") {
+                      setServingsCount("")
+                    }
+                  }}
+                  keyboardType="numeric"
+                />
+
+                <TouchableOpacity
+                  style={styles.servingsButton}
+                  onPress={() => {
+                    const current = Number.parseInt(servingsCount) || 0
+                    setServingsCount((current + 1).toString())
+                  }}
+                >
+                  <Ionicons name="add" size={20} color="#FF6B6B" />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.ingredientsNote}>
+                This will add {recipe.ingredients.length} ingredients to your shopping list.
+              </Text>
+
+              <Button
+                title="Create Shopping List"
+                onPress={createShoppingList}
+                isLoading={isAddingToShoppingList}
+                style={styles.createButton}
+              />
+            </View>
+          </View>
+        </View>
       </Modal>
     </>
   )
@@ -342,6 +484,7 @@ const styles = StyleSheet.create({
   metaContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
+    marginBottom: 12,
   },
   metaItem: {
     flexDirection: "row",
@@ -354,8 +497,28 @@ const styles = StyleSheet.create({
     color: "#666",
     fontSize: 14,
   },
+  recipeMetaContainer: {
+    flexDirection: "row",
+    marginTop: 8,
+  },
+  recipeMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginRight: 20,
+    backgroundColor: "#FFF0F0",
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+  },
+  recipeMetaText: {
+    marginLeft: 4,
+    color: "#FF6B6B",
+    fontSize: 14,
+    fontWeight: "500",
+  },
   actionsContainer: {
     flexDirection: "row",
+    flexWrap: "wrap",
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
@@ -364,6 +527,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginRight: 16,
+    marginBottom: 8,
     padding: 8,
     backgroundColor: "#FFF0F0",
     borderRadius: 8,
@@ -430,6 +594,82 @@ const styles = StyleSheet.create({
   },
   webview: {
     flex: 1,
+  },
+  shoppingListModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  shoppingListModalContainer: {
+    width: "90%",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  shoppingListModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+    backgroundColor: "#FF6B6B",
+  },
+  shoppingListModalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#fff",
+  },
+  shoppingListModalContent: {
+    padding: 16,
+  },
+  shoppingListLabel: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#333",
+    marginBottom: 8,
+  },
+  shoppingListInput: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    marginBottom: 16,
+  },
+  servingsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  servingsButton: {
+    width: 40,
+    height: 40,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  servingsInput: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    padding: 8,
+    fontSize: 16,
+    textAlign: "center",
+    width: 60,
+    marginHorizontal: 12,
+  },
+  ingredientsNote: {
+    fontSize: 14,
+    color: "#666",
+    fontStyle: "italic",
+    marginBottom: 20,
+  },
+  createButton: {
+    marginTop: 10,
   },
 })
 

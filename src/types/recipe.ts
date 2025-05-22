@@ -15,6 +15,8 @@ export interface RecipeDto {
   totalCarbs: number
   ingredients: RecipeProductDto[]
   isSaved: boolean
+  cookingTime: number // Час приготування в хвилинах
+  servings: number // Кількість порцій
 }
 
 export interface RecipeProductDto {
@@ -40,6 +42,8 @@ export interface RecipeCreateDto {
   videoUrl: string
   categoryId: number
   ingredients: RecipeProductCreateDto[]
+  cookingTime: number // Час приготування в хвилинах
+  servings: number // Кількість порцій
 }
 
 export interface RecipeUpdateDto extends RecipeCreateDto {}

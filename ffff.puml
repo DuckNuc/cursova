@@ -1,0 +1,136 @@
+@startuml
+
+' === МОДЕЛІ ===
+
+class User {
+  +Id: int
+  +Email: string
+  +PasswordHash: string
+  +GoogleId: string
+  +FullName: string
+  +Role: string
+  +CreatedAt: DateTime
+}
+
+class Recipe {
+  +Id: int
+  +Title: string
+  +Description: string
+  +ImageUrl: string
+  +VideoUrl: string
+  +UserId: int
+  +CategoryId: int
+  +CreatedAt: DateTime
+}
+
+class Product {
+  +Id: int
+  +Name: string
+  +CategoryId: int
+  +CaloriesPer100g: double
+  +ProteinsPer100g: double
+  +FatsPer100g: double
+  +CarbsPer100g: double
+}
+
+class RecipeProduct {
+  +Id: int
+  +RecipeId: int
+  +ProductId: int
+  +AmountGrams: double
+}
+
+class SavedRecipe {
+  +Id: int
+  +UserId: int
+  +RecipeId: int
+  +SavedAt: DateTime
+}
+
+class ProductCategory {
+  +Id: int
+  +Name: string
+}
+
+class RecipeCategory {
+  +Id: int
+  +Name: string
+}
+
+' === DTO ===
+
+class UserDTOs
+class RecipeDTOs
+class ProductDTOs
+class CategoryDTOs
+class CalorieCalculationDTOs
+class AuthDTOs
+
+' === СЕРВІСИ ===
+
+interface IAuthService
+class AuthService
+
+interface IRecipeService
+class RecipeService
+
+interface IProductService
+class ProductService
+
+interface ICategoryService
+class CategoryService
+
+interface ICalorieCalculationService
+class CalorieCalculationService
+
+' === СТРУКТУРНІ ЗВ'ЯЗКИ МОДЕЛЕЙ ===
+
+User --> "0..*" Recipe : creates
+User --> "0..*" SavedRecipe : saves
+Recipe --> "0..*" RecipeProduct
+Product --> "0..*" RecipeProduct
+Recipe --> RecipeCategory : belongs to
+Product --> ProductCategory : belongs to
+SavedRecipe --> User
+SavedRecipe --> Recipe
+RecipeProduct --> Recipe
+RecipeProduct --> Product
+
+' === ЗВ'ЯЗКИ DTO ===
+
+UserDTOs ..> User : maps to
+RecipeDTOs ..> Recipe : maps to
+ProductDTOs ..> Product : maps to
+CategoryDTOs ..> RecipeCategory : maps to
+CategoryDTOs ..> ProductCategory : maps to
+CalorieCalculationDTOs ..> RecipeProduct : calculates from
+AuthDTOs ..> User : auth for
+
+
+' === ЗВ'ЯЗКИ СЕРВІСІВ ===
+
+IAuthService <|.. AuthService
+IRecipeService <|.. RecipeService
+IProductService <|.. ProductService
+ICategoryService <|.. CategoryService
+ICalorieCalculationService <|.. CalorieCalculationService
+
+' === СЕРВІСИ ПРАЦЮЮТЬ ІЗ DTO ===
+
+AuthService ..> AuthDTOs
+RecipeService ..> RecipeDTOs
+ProductService ..> ProductDTOs
+CategoryService ..> CategoryDTOs
+CalorieCalculationService ..> CalorieCalculationDTOs
+
+' === СЕРВІСИ ПРАЦЮЮТЬ ІЗ МОДЕЛЯМИ ===
+
+AuthService ..> User
+RecipeService ..> Recipe
+ProductService ..> Product
+CategoryService ..> ProductCategory
+CategoryService ..> RecipeCategory
+CalorieCalculationService ..> RecipeProduct
+CalorieCalculationService ..> Product
+
+@enduml
